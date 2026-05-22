@@ -1,0 +1,1997 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EV Digital Twin Control Center</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+    <style>
+        :root {
+            /* Liquid Glass Theme - Dynamic weather colors will be applied via JS */
+            --bg-base: #f5f5f7;
+            --bg-surface: rgba(255, 255, 255, 0.65);
+            --bg-surface-hover: rgba(255, 255, 255, 0.85);
+            --bg-input: rgba(245, 245, 247, 0.7);
+            --border-subtle: rgba(255, 255, 255, 0.4);
+            --border-focus: rgba(255, 255, 255, 0.6);
+            --text-primary: #1d1d1f;
+            --text-secondary: #6e6e73;
+            --text-tertiary: #86868b;
+            --accent: #0071e3;
+            --accent-hover: #0077ed;
+            --accent-soft: rgba(0, 113, 227, 0.15);
+            --success: #34c759;
+            --warning: #ff9500;
+            --danger: #ff3b30;
+            --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.04);
+            --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.06);
+            --shadow-lg: 0 16px 48px rgba(0, 0, 0, 0.08);
+            --shadow-glass: 0 8px 32px rgba(0, 0, 0, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.4);
+            --radius-sm: 12px;
+            --radius-md: 16px;
+            --radius-lg: 20px;
+            --radius-xl: 24px;
+            --radius-pill: 999px;
+            --transition-fast: 200ms cubic-bezier(0.4, 0, 0.2, 1);
+            --transition-normal: 350ms cubic-bezier(0.4, 0, 0.2, 1);
+            --transition-slow: 500ms cubic-bezier(0.4, 0, 0.2, 1);
+            
+            /* Weather-based dynamic colors - default (clear sky) */
+            --weather-primary: rgba(255, 200, 100, 0.15);
+            --weather-secondary: rgba(100, 180, 255, 0.12);
+            --weather-tertiary: rgba(150, 220, 180, 0.08);
+            --weather-accent: rgba(255, 180, 80, 0.2);
+        }
+
+        *, *::before, *::after { 
+            box-sizing: border-box; 
+            margin: 0; 
+            padding: 0; 
+        }
+
+        html {
+            scroll-behavior: smooth;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background: var(--bg-base);
+            color: var(--text-primary);
+            min-height: 100vh;
+            padding: 40px 24px;
+            line-height: 1.5;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+            overflow-x: hidden;
+            position: relative;
+        }
+
+        /* Dynamic Weather Background Layer */
+        .weather-bg-layer {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+            pointer-events: none;
+            transition: all 1.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .weather-gradient-1 {
+            position: absolute;
+            top: -30%;
+            left: -20%;
+            width: 80%;
+            height: 100%;
+            background: radial-gradient(ellipse at center, var(--weather-primary) 0%, transparent 70%);
+            filter: blur(80px);
+            transition: all 1.2s cubic-bezier(0.4, 0, 0.2, 1);
+            animation: float-slow 20s ease-in-out infinite;
+        }
+
+        .weather-gradient-2 {
+            position: absolute;
+            top: 20%;
+            right: -30%;
+            width: 90%;
+            height: 80%;
+            background: radial-gradient(ellipse at center, var(--weather-secondary) 0%, transparent 65%);
+            filter: blur(100px);
+            transition: all 1.2s cubic-bezier(0.4, 0, 0.2, 1);
+            animation: float-medium 15s ease-in-out infinite reverse;
+        }
+
+        .weather-gradient-3 {
+            position: absolute;
+            bottom: -20%;
+            left: 10%;
+            width: 70%;
+            height: 70%;
+            background: radial-gradient(ellipse at center, var(--weather-tertiary) 0%, transparent 60%);
+            filter: blur(90px);
+            transition: all 1.2s cubic-bezier(0.4, 0, 0.2, 1);
+            animation: float-slow 25s ease-in-out infinite;
+        }
+
+        .weather-accent-glow {
+            position: absolute;
+            top: 40%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 60%;
+            height: 50%;
+            background: radial-gradient(ellipse at center, var(--weather-accent) 0%, transparent 50%);
+            filter: blur(120px);
+            transition: all 1.2s cubic-bezier(0.4, 0, 0.2, 1);
+            opacity: 0.6;
+        }
+
+        @keyframes float-slow {
+            0%, 100% { transform: translate(0, 0) scale(1); }
+            33% { transform: translate(30px, -20px) scale(1.05); }
+            66% { transform: translate(-20px, 20px) scale(0.95); }
+        }
+
+        @keyframes float-medium {
+            0%, 100% { transform: translate(0, 0) scale(1); }
+            50% { transform: translate(-40px, 30px) scale(1.08); }
+        }
+
+        /* Glass Overlay for depth */
+        .glass-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(180deg, 
+                rgba(255, 255, 255, 0.1) 0%, 
+                rgba(255, 255, 255, 0.05) 50%,
+                rgba(255, 255, 255, 0.15) 100%);
+            backdrop-filter: blur(0.5px);
+            z-index: 1;
+            pointer-events: none;
+        }
+
+        /* Particle Canvas */
+        #particleCanvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 2;
+            pointer-events: none;
+            opacity: 0.5;
+        }
+
+        .container { 
+            position: relative; 
+            z-index: 10; 
+            max-width: 1200px; 
+            margin: 0 auto; 
+        }
+
+        /* HEADER - Liquid Glass Style */
+        .header {
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center;
+            margin-bottom: 48px; 
+            padding: 24px 32px;
+            background: rgba(255, 255, 255, 0.5);
+            backdrop-filter: blur(40px) saturate(180%);
+            -webkit-backdrop-filter: blur(40px) saturate(180%);
+            border: 1px solid rgba(255, 255, 255, 0.5);
+            border-radius: var(--radius-xl);
+            box-shadow: var(--shadow-glass);
+            animation: fadeDown 0.6s ease both;
+        }
+        
+        .header-left {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+        
+        .eyebrow {
+            font-size: 0.7rem; 
+            font-weight: 600; 
+            letter-spacing: 0.12em;
+            text-transform: uppercase; 
+            color: var(--accent); 
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .eyebrow::before {
+            content: '';
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            background: var(--accent);
+            border-radius: 50%;
+            animation: pulse-glow 2s ease-in-out infinite;
+            box-shadow: 0 0 10px var(--accent);
+        }
+        
+        @keyframes pulse-glow {
+            0%, 100% { opacity: 1; transform: scale(1); box-shadow: 0 0 10px var(--accent); }
+            50% { opacity: 0.7; transform: scale(0.9); box-shadow: 0 0 20px var(--accent); }
+        }
+        
+        h1 {
+            font-size: clamp(1.6rem, 3.5vw, 2.2rem);
+            font-weight: 700; 
+            color: var(--text-primary);
+            line-height: 1.15; 
+            letter-spacing: -0.03em;
+            margin: 0;
+        }
+        
+        h1 span { 
+            background: linear-gradient(135deg, var(--accent) 0%, #5ac8fa 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .header-right { 
+            display: flex; 
+            flex-direction: column; 
+            align-items: flex-end; 
+            gap: 12px; 
+        }
+        
+        .status-badge {
+            display: flex; 
+            align-items: center; 
+            gap: 10px;
+            background: rgba(255, 255, 255, 0.6);
+            border: 1px solid rgba(255, 255, 255, 0.6);
+            border-radius: var(--radius-pill); 
+            padding: 8px 18px;
+            font-size: 0.8rem; 
+            font-weight: 500; 
+            letter-spacing: 0.02em;
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            transition: var(--transition-fast);
+            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
+        }
+        
+        .status-badge:hover {
+            background: rgba(255, 255, 255, 0.8);
+            border-color: rgba(255, 255, 255, 0.8);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
+        }
+        
+        .dot {
+            width: 10px; 
+            height: 10px; 
+            border-radius: 50%;
+            background: var(--danger); 
+            flex-shrink: 0;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.8);
+        }
+        
+        .dot.online {
+            background: var(--success);
+            box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.8), 0 0 20px rgba(52, 199, 89, 0.5);
+        }
+        
+        #status-text { 
+            color: var(--text-secondary); 
+            transition: color 0.3s; 
+        }
+        
+        .dot.online + #status-text {
+            color: var(--success);
+        }
+        
+        .timestamp {
+            font-size: 0.75rem; 
+            color: var(--text-tertiary);
+            font-weight: 500;
+            letter-spacing: 0.02em;
+            font-variant-numeric: tabular-nums;
+            background: rgba(255, 255, 255, 0.4);
+            padding: 4px 12px;
+            border-radius: var(--radius-pill);
+            backdrop-filter: blur(10px);
+        }
+
+        /* SECTION LABEL - Floating glass style */
+        .section-label {
+            font-size: 0.7rem;
+            font-weight: 600; 
+            letter-spacing: 0.15em; 
+            text-transform: uppercase;
+            color: var(--text-secondary); 
+            margin: 48px 0 24px;
+            display: flex; 
+            align-items: center; 
+            gap: 16px;
+            position: relative;
+            padding-left: 16px;
+        }
+        
+        .section-label::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 4px;
+            height: 20px;
+            background: linear-gradient(180deg, var(--accent) 0%, #5ac8fa 100%);
+            border-radius: 2px;
+        }
+
+        /* INPUT GRID - Liquid Glass Cards */
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 20px; 
+            margin-bottom: 40px;
+            animation: fadeUp 0.7s 0.1s ease both;
+        }
+
+        .input-group {
+            background: rgba(255, 255, 255, 0.55);
+            border: 1px solid rgba(255, 255, 255, 0.6);
+            border-radius: var(--radius-lg); 
+            padding: 24px;
+            position: relative; 
+            overflow: hidden;
+            transition: var(--transition-normal);
+            backdrop-filter: blur(30px) saturate(150%);
+            -webkit-backdrop-filter: blur(30px) saturate(150%);
+            box-shadow: 
+                0 4px 20px rgba(0, 0, 0, 0.04),
+                inset 0 1px 0 rgba(255, 255, 255, 0.6);
+        }
+        
+        .input-group::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.8), transparent);
+        }
+        
+        .input-group:hover {
+            background: rgba(255, 255, 255, 0.7);
+            border-color: rgba(255, 255, 255, 0.8);
+            box-shadow: 
+                0 8px 32px rgba(0, 0, 0, 0.06),
+                inset 0 1px 0 rgba(255, 255, 255, 0.8);
+            transform: translateY(-3px);
+        }
+        
+        .input-group:focus-within {
+            background: rgba(255, 255, 255, 0.8);
+            border-color: var(--accent);
+            box-shadow: 
+                0 0 0 3px var(--accent-soft),
+                0 8px 32px rgba(0, 0, 0, 0.08),
+                inset 0 1px 0 rgba(255, 255, 255, 0.9);
+        }
+
+        .label-row {
+            display: flex; 
+            justify-content: space-between;
+            align-items: baseline; 
+            margin-bottom: 18px;
+            gap: 12px;
+        }
+        
+        label {
+            font-size: 0.7rem; 
+            font-weight: 600; 
+            letter-spacing: 0.08em;
+            text-transform: uppercase; 
+            color: var(--text-secondary);
+            flex-shrink: 0;
+        }
+        
+        .live-val {
+            font-family: -apple-system, BlinkMacSystemFont, 'Inter', sans-serif;
+            font-size: 1.15rem; 
+            font-weight: 600;
+            color: var(--text-primary);
+            min-width: 70px; 
+            text-align: right; 
+            letter-spacing: -0.01em;
+            font-variant-numeric: tabular-nums;
+            background: rgba(255, 255, 255, 0.5);
+            padding: 4px 10px;
+            border-radius: var(--radius-sm);
+            backdrop-filter: blur(10px);
+        }
+        
+        .live-unit {
+            font-size: 0.75em; 
+            color: var(--text-tertiary);
+            margin-left: 3px; 
+            font-weight: 500;
+        }
+
+        /* RANGE SLIDER - Liquid Glass Style */
+        input[type="range"] {
+            -webkit-appearance: none; 
+            appearance: none;
+            width: 100%; 
+            height: 32px;
+            background: transparent; 
+            cursor: pointer; 
+            outline: none; 
+            margin: 0 -10px;
+            padding: 0 10px;
+        }
+        
+        input[type="range"]::-webkit-slider-runnable-track {
+            height: 6px; 
+            border-radius: 3px;
+            background: linear-gradient(
+                to right,
+                var(--accent) 0%,
+                var(--accent) var(--pct, 0%),
+                rgba(0, 0, 0, 0.06) var(--pct, 0%),
+                rgba(0, 0, 0, 0.06) 100%
+            );
+            transition: background 0.2s;
+            box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.08);
+        }
+        
+        input[type="range"]::-moz-range-track {
+            height: 6px; 
+            border-radius: 3px; 
+            background: rgba(0, 0, 0, 0.06);
+            box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.08);
+        }
+        
+        input[type="range"]::-moz-range-progress {
+            height: 6px; 
+            border-radius: 3px; 
+            background: var(--accent);
+        }
+        
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 24px; 
+            height: 24px; 
+            border-radius: 50%;
+            background: white; 
+            border: 2px solid var(--accent);
+            box-shadow: 
+                0 3px 10px rgba(0, 0, 0, 0.15), 
+                0 0 0 5px rgba(0, 113, 227, 0.1),
+                inset 0 2px 4px rgba(255, 255, 255, 0.8);
+            margin-top: -9px;
+            transition: var(--transition-fast);
+            cursor: grab;
+        }
+        
+        input[type="range"]::-moz-range-thumb {
+            width: 24px; 
+            height: 24px; 
+            border-radius: 50%;
+            background: white; 
+            border: 2px solid var(--accent);
+            box-shadow: 
+                0 3px 10px rgba(0, 0, 0, 0.15), 
+                0 0 0 5px rgba(0, 113, 227, 0.1);
+            transition: var(--transition-fast);
+            cursor: grab;
+        }
+        
+        input[type="range"]:hover::-webkit-slider-thumb {
+            box-shadow: 
+                0 5px 15px rgba(0, 0, 0, 0.2), 
+                0 0 0 6px rgba(0, 113, 227, 0.15),
+                inset 0 2px 4px rgba(255, 255, 255, 0.9);
+            transform: scale(1.08);
+        }
+        
+        input[type="range"]:active::-webkit-slider-thumb {
+            cursor: grabbing;
+            transform: scale(1.12);
+            box-shadow: 
+                0 6px 18px rgba(0, 0, 0, 0.25), 
+                0 0 0 7px rgba(0, 113, 227, 0.2);
+        }
+
+        .range-limits {
+            display: flex; 
+            justify-content: space-between;
+            margin-top: 12px; 
+            font-size: 0.7rem;
+            color: var(--text-tertiary); 
+            font-weight: 500;
+            font-variant-numeric: tabular-nums;
+        }
+
+        /* WEATHER SELECT - Glass Dropdown */
+        .weather-select {
+            width: 100%; 
+            padding: 14px 44px 14px 18px;
+            background: rgba(255, 255, 255, 0.6); 
+            border: 1px solid rgba(255, 255, 255, 0.6);
+            color: var(--text-primary); 
+            border-radius: var(--radius-md);
+            font-family: inherit; 
+            font-size: 0.95rem; 
+            font-weight: 500;
+            cursor: pointer; 
+            outline: none; 
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='%236e6e73' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+            background-repeat: no-repeat; 
+            background-position: right 16px center;
+            background-size: 18px;
+            transition: var(--transition-fast);
+            backdrop-filter: blur(10px);
+        }
+        
+        .weather-select:focus {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px var(--accent-soft);
+            background-color: rgba(255, 255, 255, 0.9);
+        }
+        
+        .weather-select:hover {
+            border-color: rgba(255, 255, 255, 0.9);
+            background-color: rgba(255, 255, 255, 0.75);
+        }
+        
+        .weather-select option { 
+            background: white; 
+            color: var(--text-primary); 
+            padding: 10px;
+            font-weight: 500;
+        }
+
+        /* BUTTON - Liquid Glass Button */
+        .btn-wrap { 
+            margin: 48px 0 56px; 
+            animation: fadeUp 0.7s 0.2s ease both; 
+        }
+        
+        button {
+            width: 100%; 
+            padding: 18px 28px;
+            background: linear-gradient(135deg, var(--accent) 0%, #0077ed 50%, #5ac8fa 100%);
+            background-size: 200% 200%;
+            border: none;
+            color: white; 
+            font-family: inherit;
+            font-size: 0.9rem; 
+            font-weight: 600; 
+            letter-spacing: 0.03em;
+            border-radius: var(--radius-pill); 
+            cursor: pointer; 
+            position: relative; 
+            overflow: hidden;
+            transition: var(--transition-normal);
+            box-shadow: 
+                0 6px 24px rgba(0, 113, 227, 0.35),
+                inset 0 1px 0 rgba(255, 255, 255, 0.3);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+        }
+        
+        button::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(135deg, 
+                rgba(255, 255, 255, 0.3) 0%, 
+                transparent 40%, 
+                transparent 60%, 
+                rgba(255, 255, 255, 0.15) 100%);
+            opacity: 0.6;
+            transition: opacity 0.3s;
+        }
+        
+        button::after {
+            content: '';
+            position: absolute;
+            inset: -2px;
+            background: linear-gradient(135deg, var(--accent), #5ac8fa, var(--accent));
+            background-size: 300% 300%;
+            border-radius: var(--radius-pill);
+            z-index: -1;
+            opacity: 0;
+            filter: blur(15px);
+            transition: opacity 0.4s;
+            animation: gradient-shift 3s ease infinite;
+        }
+        
+        @keyframes gradient-shift {
+            0%, 100% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+        }
+        
+        button:hover { 
+            background-position: 100% 100%;
+            box-shadow: 
+                0 10px 32px rgba(0, 113, 227, 0.45),
+                inset 0 1px 0 rgba(255, 255, 255, 0.4);
+            transform: translateY(-2px);
+        }
+        
+        button:hover::after {
+            opacity: 0.6;
+        }
+        
+        button:active { 
+            transform: translateY(0);
+            box-shadow: 
+                0 4px 16px rgba(0, 113, 227, 0.3),
+                inset 0 1px 0 rgba(255, 255, 255, 0.2);
+        }
+        
+        button span { 
+            position: relative; 
+            z-index: 1; 
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        /* RESULTS PANEL - Main Glass Container */
+        .results {
+            background: rgba(255, 255, 255, 0.45);
+            border: 1px solid rgba(255, 255, 255, 0.5);
+            border-radius: var(--radius-xl); 
+            padding: 40px; 
+            position: relative; 
+            overflow: hidden;
+            animation: fadeUp 0.7s 0.3s ease both;
+            backdrop-filter: blur(40px) saturate(160%);
+            -webkit-backdrop-filter: blur(40px) saturate(160%);
+            box-shadow: 
+                0 12px 48px rgba(0, 0, 0, 0.06),
+                inset 0 1px 0 rgba(255, 255, 255, 0.6);
+        }
+        
+        .results::before {
+            content: ''; 
+            position: absolute; 
+            top: 0; 
+            left: 0; 
+            right: 0; 
+            height: 1px;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.8), transparent);
+        }
+
+        /* OUTPUT DASHBOARD */
+        .output-dashboard {
+            display: grid;
+            grid-template-columns: 1.1fr 0.9fr 1fr;
+            gap: 28px;
+        }
+
+        .output-panel {
+            background: rgba(255, 255, 255, 0.5);
+            border: 1px solid rgba(255, 255, 255, 0.6);
+            border-radius: var(--radius-lg);
+            padding: 28px 24px 24px;
+            position: relative;
+            overflow: hidden;
+            transition: var(--transition-normal);
+            backdrop-filter: blur(24px) saturate(140%);
+            -webkit-backdrop-filter: blur(24px) saturate(140%);
+            box-shadow: 
+                0 4px 20px rgba(0, 0, 0, 0.04),
+                inset 0 1px 0 rgba(255, 255, 255, 0.5);
+        }
+        
+        .output-panel::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.7), transparent);
+        }
+        
+        .output-panel:hover {
+            background: rgba(255, 255, 255, 0.65);
+            border-color: rgba(255, 255, 255, 0.8);
+            box-shadow: 
+                0 8px 32px rgba(0, 0, 0, 0.06),
+                inset 0 1px 0 rgba(255, 255, 255, 0.7);
+            transform: translateY(-3px);
+        }
+
+        .output-panel-label {
+            font-size: 0.7rem;
+            letter-spacing: 0.12em;
+            color: var(--text-tertiary);
+            text-transform: uppercase;
+            font-weight: 600;
+            text-align: center;
+            margin-bottom: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        #rangeGauge { 
+            margin-top: 10px; 
+        }
+
+        /* Efficiency Ring - Enhanced */
+        .efficiency-container {
+            position: relative;
+            width: 150px;
+            height: 150px;
+            margin: 20px auto 12px;
+        }
+        
+        .efficiency-ring {
+            transform: rotate(-90deg);
+            filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.06));
+        }
+        
+        .efficiency-ring-bg {
+            fill: none;
+            stroke: rgba(0, 0, 0, 0.06);
+            stroke-width: 10;
+        }
+        
+        .efficiency-ring-progress {
+            fill: none;
+            stroke: var(--accent);
+            stroke-width: 10;
+            stroke-linecap: round;
+            transition: stroke-dashoffset 0.7s cubic-bezier(0.4, 0, 0.2, 1), stroke 0.4s;
+            filter: drop-shadow(0 3px 8px rgba(0, 113, 227, 0.2));
+        }
+        
+        .efficiency-center {
+            position: absolute;
+            top: 50%; 
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            padding: 0 6px;
+        }
+        
+        .efficiency-score {
+            font-family: -apple-system, BlinkMacSystemFont, 'Inter', sans-serif;
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            letter-spacing: -0.02em;
+            line-height: 1;
+        }
+        
+        .efficiency-label {
+            font-size: 0.65rem;
+            letter-spacing: 0.1em;
+            color: var(--text-tertiary);
+            text-transform: uppercase;
+            font-weight: 600;
+            margin-top: 6px;
+        }
+
+        /* Energy Panel */
+        .energy-big {
+            text-align: center;
+            padding: 24px 0 16px;
+        }
+        
+        .energy-number {
+            font-family: -apple-system, BlinkMacSystemFont, 'Inter', sans-serif;
+            font-size: clamp(2rem, 4.5vw, 2.6rem);
+            font-weight: 700;
+            color: var(--text-primary);
+            letter-spacing: -0.03em;
+            line-height: 1;
+            font-variant-numeric: tabular-nums;
+            text-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+        }
+        
+        .energy-unit {
+            font-size: 0.95rem;
+            color: var(--text-secondary);
+            letter-spacing: 0.02em;
+            margin-left: 4px;
+            font-weight: 500;
+        }
+
+        .sparkline-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin: 16px 6px 10px;
+            padding: 0 6px;
+        }
+        
+        .sparkline-label {
+            font-size: 0.7rem;
+            letter-spacing: 0.1em;
+            color: var(--text-tertiary);
+            text-transform: uppercase;
+            font-weight: 600;
+        }
+        
+        .sparkline-live-tag {
+            font-size: 0.7rem;
+            letter-spacing: 0.06em;
+            color: var(--success);
+            text-transform: uppercase;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            background: rgba(52, 199, 89, 0.1);
+            padding: 4px 10px;
+            border-radius: var(--radius-pill);
+        }
+        
+        .sparkline-live-tag::before {
+            content: '';
+            display: inline-block;
+            width: 7px;
+            height: 7px;
+            background: var(--success);
+            border-radius: 50%;
+            animation: pulse 1.5s ease-in-out infinite;
+            box-shadow: 0 0 8px var(--success);
+        }
+
+        /* Weather Impact Badge - Glass Style */
+        .weather-impact {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            background: rgba(255, 255, 255, 0.5);
+            border: 1px solid rgba(255, 255, 255, 0.6);
+            border-radius: var(--radius-pill);
+            padding: 10px 18px;
+            margin-top: 18px;
+            font-size: 0.8rem;
+            font-weight: 500;
+            transition: var(--transition-fast);
+            backdrop-filter: blur(10px);
+        }
+        
+        .weather-impact:hover {
+            background: rgba(255, 255, 255, 0.7);
+            border-color: rgba(255, 255, 255, 0.8);
+        }
+        
+        .weather-impact-icon {
+            font-size: 1.2em;
+        }
+        
+        .weather-impact-text {
+            color: var(--text-secondary);
+            letter-spacing: 0.02em;
+        }
+        
+        .weather-impact-value {
+            color: var(--text-primary);
+            font-weight: 600;
+            font-variant-numeric: tabular-nums;
+        }
+        
+        .weather-impact.negative .weather-impact-value {
+            color: var(--warning);
+        }
+
+        /* Feature Impact Bars - Glass Progress */
+        .impact-bars {
+            margin-top: 24px;
+        }
+        
+        .impact-bar-item {
+            margin-bottom: 16px;
+        }
+        
+        .impact-bar-label {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.68rem;
+            letter-spacing: 0.06em;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            margin-bottom: 8px;
+            font-weight: 500;
+        }
+        
+        .impact-bar-track {
+            height: 8px;
+            background: rgba(0, 0, 0, 0.05);
+            border-radius: 4px;
+            overflow: hidden;
+            position: relative;
+            box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.06);
+        }
+        
+        .impact-bar-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--accent), #5ac8fa);
+            border-radius: 4px;
+            transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1), background 0.3s;
+            position: relative;
+            box-shadow: 0 2px 8px rgba(0, 113, 227, 0.2);
+        }
+        
+        .impact-bar-fill::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(90deg, 
+                rgba(255,255,255,0.3) 0%, 
+                transparent 30%, 
+                transparent 70%, 
+                rgba(255,255,255,0.15) 100%);
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        
+        .impact-bar-fill:hover::after {
+            opacity: 1;
+        }
+        
+        .impact-bar-fill.warning {
+            background: linear-gradient(90deg, var(--warning), #ffcc00);
+            box-shadow: 0 2px 8px rgba(255, 149, 0, 0.25);
+        }
+        
+        .impact-bar-fill.critical {
+            background: linear-gradient(90deg, var(--danger), #ff6b6b);
+            box-shadow: 0 2px 8px rgba(255, 59, 48, 0.25);
+        }
+
+        /* Terrain Profile - Glass SVG */
+        .terrain-container {
+            margin-top: 24px;
+            height: 72px;
+            position: relative;
+            background: rgba(255, 255, 255, 0.4);
+            border-radius: var(--radius-md);
+            overflow: hidden;
+            border: 1px solid rgba(255, 255, 255, 0.5);
+            backdrop-filter: blur(8px);
+        }
+        
+        .terrain-svg {
+            width: 100%;
+            height: 100%;
+        }
+        
+        .terrain-path {
+            fill: none;
+            stroke: var(--accent);
+            stroke-width: 3;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+            filter: drop-shadow(0 2px 4px rgba(0, 113, 227, 0.2));
+        }
+        
+        .terrain-fill {
+            fill: url(#terrainGradient);
+            opacity: 0.2;
+        }
+        
+        .terrain-gradient-stop1 {
+            stop-color: var(--accent);
+            stop-opacity: 0.4;
+        }
+        
+        .terrain-gradient-stop2 {
+            stop-color: var(--accent);
+            stop-opacity: 0;
+        }
+        
+        .terrain-label {
+            position: absolute;
+            bottom: 8px;
+            right: 12px;
+            font-size: 0.65rem;
+            color: var(--text-tertiary);
+            letter-spacing: 0.06em;
+            font-weight: 500;
+            text-transform: uppercase;
+            background: rgba(255, 255, 255, 0.6);
+            padding: 2px 8px;
+            border-radius: 4px;
+        }
+
+        /* Battery Status Indicator - Glass Badge */
+        .battery-status {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            margin-top: 14px;
+            font-size: 0.8rem;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+            font-weight: 600;
+            color: var(--text-secondary);
+            background: rgba(255, 255, 255, 0.4);
+            padding: 8px 16px;
+            border-radius: var(--radius-pill);
+            backdrop-filter: blur(8px);
+        }
+        
+        .battery-status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: var(--success);
+            box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.9), 0 0 10px currentColor;
+            flex-shrink: 0;
+        }
+        
+        .battery-status.optimal { color: var(--success); }
+        .battery-status.good { color: var(--accent); }
+        .battery-status.warning { color: var(--warning); }
+        .battery-status.critical { color: var(--danger); }
+        
+        .battery-status.optimal .battery-status-dot { background: var(--success); }
+        .battery-status.good .battery-status-dot { background: var(--accent); }
+        .battery-status.warning .battery-status-dot { background: var(--warning); }
+        .battery-status.critical .battery-status-dot { background: var(--danger); }
+
+        /* Animations */
+        @keyframes fadeDown { 
+            from { opacity: 0; transform: translateY(-16px); } 
+            to { opacity: 1; transform: translateY(0); } 
+        }
+        
+        @keyframes fadeUp { 
+            from { opacity: 0; transform: translateY(16px); } 
+            to { opacity: 1; transform: translateY(0); } 
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 900px) {
+            .output-dashboard { 
+                grid-template-columns: 1fr; 
+                gap: 24px;
+            }
+            
+            .header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 20px;
+                padding: 20px 24px;
+            }
+            
+            .header-right {
+                align-items: flex-start;
+                width: 100%;
+            }
+            
+            .status-badge {
+                width: 100%;
+                justify-content: center;
+            }
+        }
+        
+        @media (max-width: 520px) {
+            body {
+                padding: 24px 16px;
+            }
+            
+            .header {
+                margin-bottom: 36px;
+                padding: 18px 20px;
+            }
+            
+            h1 {
+                font-size: 1.7rem;
+            }
+            
+            .grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .results {
+                padding: 28px 20px;
+            }
+            
+            .output-panel {
+                padding: 22px 18px 18px;
+            }
+        }
+
+        /* Focus visible for accessibility */
+        :focus-visible {
+            outline: 2px solid var(--accent);
+            outline-offset: 3px;
+            border-radius: 6px;
+        }
+        
+        /* Reduce motion preference */
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after {
+                animation-duration: 0.01ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.01ms !important;
+            }
+        }
+    </style>
+<base target="_blank">
+</head>
+<body>
+<!-- Dynamic Weather Background -->
+<div class="weather-bg-layer" id="weatherBg">
+    <div class="weather-gradient-1"></div>
+    <div class="weather-gradient-2"></div>
+    <div class="weather-gradient-3"></div>
+    <div class="weather-accent-glow"></div>
+</div>
+
+<!-- Glass Overlay -->
+<div class="glass-overlay"></div>
+
+<canvas id="particleCanvas"></canvas>
+
+<div class="container">
+
+    <!-- HEADER -->
+    <div class="header">
+        <div class="header-left">
+            <div class="eyebrow">Omniverse Sync Active</div>
+            <h1>EV Digital <span>Twin</span><br>Control Center</h1>
+        </div>
+        <div class="header-right">
+            <div class="status-badge">
+                <span class="dot" id="status-dot"></span>
+                <span id="status-text">Connecting...</span>
+            </div>
+            <div class="timestamp" id="timestamp">--:--:--</div>
+        </div>
+    </div>
+
+    <!-- INPUTS -->
+    <div class="section-label">Input Parameters</div>
+    <div class="grid">
+
+        <div class="input-group">
+            <div class="label-row">
+                <label>Speed</label>
+                <span class="live-val" id="val_Speed_kmh">0<span class="live-unit">km/h</span></span>
+            </div>
+            <input type="range" id="Speed_kmh" min="0" max="250" step="1" value="0"
+                   oninput="syncSlider(this,'val_Speed_kmh','km/h'); updateParticles()">
+            <div class="range-limits"><span>0</span><span>250 km/h</span></div>
+        </div>
+
+        <div class="input-group">
+            <div class="label-row">
+                <label>Acceleration</label>
+                <span class="live-val" id="val_Acceleration_ms2">0<span class="live-unit">m/s²</span></span>
+            </div>
+            <input type="range" id="Acceleration_ms2" min="-10" max="10" step="0.1" value="0"
+                   oninput="syncSlider(this,'val_Acceleration_ms2','m/s²')">
+            <div class="range-limits"><span>-10</span><span>+10 m/s²</span></div>
+        </div>
+
+        <div class="input-group">
+            <div class="label-row">
+                <label>Battery State</label>
+                <span class="live-val" id="val_Battery_State">50<span class="live-unit">%</span></span>
+            </div>
+            <input type="range" id="Battery_State_%" min="0" max="100" step="1" value="50"
+                   oninput="syncSlider(this,'val_Battery_State','%'); updateBatteryStatus()">
+            <div class="range-limits"><span>0%</span><span>100%</span></div>
+        </div>
+
+        <div class="input-group">
+            <div class="label-row">
+                <label>Battery Voltage</label>
+                <span class="live-val" id="val_Battery_Voltage_V">400<span class="live-unit">V</span></span>
+            </div>
+            <input type="range" id="Battery_Voltage_V" min="200" max="900" step="1" value="400"
+                   oninput="syncSlider(this,'val_Battery_Voltage_V','V')">
+            <div class="range-limits"><span>200 V</span><span>900 V</span></div>
+        </div>
+
+        <div class="input-group">
+            <div class="label-row">
+                <label>Battery Temp</label>
+                <span class="live-val" id="val_Battery_Temperature_C">25<span class="live-unit">°C</span></span>
+            </div>
+            <input type="range" id="Battery_Temperature_C" min="-20" max="80" step="0.5" value="25"
+                   oninput="syncSlider(this,'val_Battery_Temperature_C','°C')">
+            <div class="range-limits"><span>-20°C</span><span>80°C</span></div>
+        </div>
+
+        <div class="input-group">
+            <div class="label-row">
+                <label>Road Slope</label>
+                <span class="live-val" id="val_Slope">0<span class="live-unit">%</span></span>
+            </div>
+            <input type="range" id="Slope_%" min="-30" max="30" step="0.5" value="0"
+                   oninput="syncSlider(this,'val_Slope','%'); updateTerrain()">
+            <div class="range-limits"><span>-30%</span><span>+30%</span></div>
+        </div>
+
+        <div class="input-group">
+            <div class="label-row">
+                <label>Ambient Temp</label>
+                <span class="live-val" id="val_Temperature_C">20<span class="live-unit">°C</span></span>
+            </div>
+            <input type="range" id="Temperature_C" min="-40" max="60" step="0.5" value="20"
+                   oninput="syncSlider(this,'val_Temperature_C','°C')">
+            <div class="range-limits"><span>-40°C</span><span>60°C</span></div>
+        </div>
+
+        <div class="input-group">
+            <div class="label-row">
+                <label>Distance Travelled</label>
+                <span class="live-val" id="val_Distance_Travelled_km">0<span class="live-unit">km</span></span>
+            </div>
+            <input type="range" id="Distance_Travelled_km" min="0" max="1000" step="1" value="0"
+                   oninput="syncSlider(this,'val_Distance_Travelled_km','km')">
+            <div class="range-limits"><span>0</span><span>1000 km</span></div>
+        </div>
+
+        <div class="input-group">
+            <div class="label-row">
+                <label>Battery Capacity</label>
+                <span class="live-val" id="val_Total_Battery_Capacity_kWh">75<span class="live-unit">kWh</span></span>
+            </div>
+            <input type="range" id="Total_Battery_Capacity_kWh" min="20" max="200" step="0.5" value="75"
+                   oninput="syncSlider(this,'val_Total_Battery_Capacity_kWh','kWh')">
+            <div class="range-limits"><span>20 kWh</span><span>200 kWh</span></div>
+        </div>
+
+        <div class="input-group">
+            <div class="label-row">
+                <label>Weather Condition</label>
+                <span class="live-val" id="val_Weather_icon">☀️</span>
+            </div>
+            <select id="Weather_Condition" class="weather-select" onchange="updateWeatherIcon(this); updateWeatherImpact(); updateWeatherBackground()">
+                <option value="0">☀️ Clear Sky</option>
+                <option value="1">🌤️ Partly Cloudy</option>
+                <option value="2">☁️ Overcast</option>
+                <option value="3">🌦️ Light Rain</option>
+                <option value="4">🌧️ Heavy Rain</option>
+                <option value="5">⛈️ Thunderstorm</option>
+                <option value="6">❄️ Snow</option>
+                <option value="7">🌫️ Fog / Low Visibility</option>
+                <option value="8">🌬️ High Wind</option>
+                <option value="9">🌨️ Hail</option>
+            </select>
+        </div>
+
+    </div>
+
+    <!-- BUTTON -->
+    <div class="btn-wrap">
+        <button onclick="sendInputs()">
+            <span>⬡ Push Parameters to Omniverse</span>
+        </button>
+    </div>
+
+    <!-- LIVE ML PREDICTIONS -->
+    <div class="section-label">Live ML Predictions</div>
+    <div class="results">
+        <div class="output-dashboard">
+
+            <!-- LEFT: Range Gauge with Battery Status -->
+            <div class="output-panel">
+                <div class="output-panel-label">⚡ Predicted Range</div>
+                <div id="rangeGauge"></div>
+                <div class="battery-status optimal" id="batteryStatus">
+                    <span class="battery-status-dot"></span>
+                    <span id="batteryStatusText">Optimal Range</span>
+                </div>
+
+                <!-- Feature Impact Bars -->
+                <div class="impact-bars">
+                    <div class="impact-bar-item">
+                        <div class="impact-bar-label">
+                            <span>Speed Impact</span>
+                            <span id="speedImpactVal">0%</span>
+                        </div>
+                        <div class="impact-bar-track">
+                            <div class="impact-bar-fill" id="speedImpactBar" style="width: 0%"></div>
+                        </div>
+                    </div>
+                    <div class="impact-bar-item">
+                        <div class="impact-bar-label">
+                            <span>Slope Impact</span>
+                            <span id="slopeImpactVal">0%</span>
+                        </div>
+                        <div class="impact-bar-track">
+                            <div class="impact-bar-fill" id="slopeImpactBar" style="width: 0%"></div>
+                        </div>
+                    </div>
+                    <div class="impact-bar-item">
+                        <div class="impact-bar-label">
+                            <span>Temperature Impact</span>
+                            <span id="tempImpactVal">0%</span>
+                        </div>
+                        <div class="impact-bar-track">
+                            <div class="impact-bar-fill" id="tempImpactBar" style="width: 0%"></div>
+                        </div>
+                    </div>
+                    <div class="impact-bar-item">
+                        <div class="impact-bar-label">
+                            <span>Battery Health</span>
+                            <span id="batteryImpactVal">100%</span>
+                        </div>
+                        <div class="impact-bar-track">
+                            <div class="impact-bar-fill" id="batteryImpactBar" style="width: 100%"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- CENTER: Efficiency Score -->
+            <div class="output-panel">
+                <div class="output-panel-label">🎯 Efficiency Score</div>
+                <div class="efficiency-container">
+                    <svg class="efficiency-ring" width="150" height="150" viewBox="0 0 150 150">
+                        <circle class="efficiency-ring-bg" cx="75" cy="75" r="65"/>
+                        <circle class="efficiency-ring-progress" id="efficiencyRing" cx="75" cy="75" r="65"
+                                stroke-dasharray="408" stroke-dashoffset="408"/>
+                    </svg>
+                    <div class="efficiency-center">
+                        <div class="efficiency-score" id="efficiencyScore">--</div>
+                        <div class="efficiency-label">Eco Score</div>
+                    </div>
+                </div>
+                <!-- Terrain Profile -->
+                <div class="terrain-container">
+                    <svg class="terrain-svg" id="terrainSvg" viewBox="0 0 200 60" preserveAspectRatio="none">
+                        <defs>
+                            <linearGradient id="terrainGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                                <stop offset="0%" class="terrain-gradient-stop1"/>
+                                <stop offset="100%" class="terrain-gradient-stop2"/>
+                            </linearGradient>
+                        </defs>
+                        <path class="terrain-fill" id="terrainFill" d=""/>
+                        <path class="terrain-path" id="terrainPath" d=""/>
+                    </svg>
+                    <div class="terrain-label">Terrain Profile</div>
+                </div>
+                <!-- Weather Impact Badge -->
+                <div class="weather-impact" id="weatherImpact">
+                    <span class="weather-impact-icon" id="weatherImpactIcon">☀️</span>
+                    <span class="weather-impact-text">Weather Impact:</span>
+                    <span class="weather-impact-value" id="weatherImpactValue">+0%</span>
+                </div>
+            </div>
+
+            <!-- RIGHT: Energy consumption -->
+            <div class="output-panel">
+                <div class="output-panel-label">🔋 Energy Consumption</div>
+                <div class="energy-big">
+                    <span class="energy-number" id="out_energy_display">—</span>
+                    <span class="energy-unit">kWh</span>
+                </div>
+                <div class="sparkline-header">
+                    <span class="sparkline-label">Reading History</span>
+                    <span class="sparkline-live-tag">Live</span>
+                </div>
+                <div id="energyChart"></div>
+            </div>
+
+        </div>
+
+        <span id="out_range" style="display:none"></span>
+        <span id="out_energy" style="display:none"></span>
+    </div>
+
+</div>
+
+<script>
+    /* ═══════════════════════════════════════════════
+       WEATHER BACKGROUND SYSTEM
+       ═══════════════════════════════════════════════ */
+    const weatherThemes = {
+        0: { // Clear Sky - Warm sunny gold
+            primary: 'rgba(255, 180, 60, 0.35)',
+            secondary: 'rgba(100, 170, 255, 0.28)',
+            tertiary: 'rgba(120, 220, 160, 0.22)',
+            accent: 'rgba(255, 160, 40, 0.45)'
+        },
+        1: { // Partly Cloudy - Soft warm with hints of gray
+            primary: 'rgba(160, 190, 220, 0.32)',
+            secondary: 'rgba(255, 200, 120, 0.26)',
+            tertiary: 'rgba(190, 200, 220, 0.2)',
+            accent: 'rgba(255, 190, 100, 0.38)'
+        },
+        2: { // Overcast - Cool gray tones
+            primary: 'rgba(140, 150, 175, 0.38)',
+            secondary: 'rgba(160, 170, 190, 0.3)',
+            tertiary: 'rgba(180, 185, 200, 0.24)',
+            accent: 'rgba(130, 140, 165, 0.42)'
+        },
+        3: { // Light Rain - Soft blue
+            primary: 'rgba(100, 150, 210, 0.36)',
+            secondary: 'rgba(130, 170, 220, 0.28)',
+            tertiary: 'rgba(160, 190, 230, 0.22)',
+            accent: 'rgba(80, 130, 200, 0.4)'
+        },
+        4: { // Heavy Rain - Deep blue-gray
+            primary: 'rgba(60, 100, 160, 0.42)',
+            secondary: 'rgba(80, 120, 170, 0.34)',
+            tertiary: 'rgba(120, 150, 190, 0.26)',
+            accent: 'rgba(40, 80, 140, 0.46)'
+        },
+        5: { // Thunderstorm - Dark purple-gray
+            primary: 'rgba(50, 60, 100, 0.48)',
+            secondary: 'rgba(80, 80, 120, 0.36)',
+            tertiary: 'rgba(60, 70, 100, 0.3)',
+            accent: 'rgba(100, 80, 140, 0.52)'
+        },
+        6: { // Snow - Icy blue-white
+            primary: 'rgba(180, 210, 240, 0.4)',
+            secondary: 'rgba(200, 220, 250, 0.32)',
+            tertiary: 'rgba(160, 190, 220, 0.26)',
+            accent: 'rgba(220, 240, 255, 0.48)'
+        },
+        7: { // Fog - Muted gray with warm undertone
+            primary: 'rgba(160, 165, 175, 0.4)',
+            secondary: 'rgba(180, 185, 195, 0.32)',
+            tertiary: 'rgba(150, 155, 165, 0.26)',
+            accent: 'rgba(170, 175, 185, 0.44)'
+        },
+        8: { // High Wind - Fresh teal-green
+            primary: 'rgba(120, 180, 170, 0.36)',
+            secondary: 'rgba(150, 200, 140, 0.28)',
+            tertiary: 'rgba(170, 210, 180, 0.22)',
+            accent: 'rgba(100, 170, 150, 0.42)'
+        },
+        9: { // Hail - Icy blue-gray
+            primary: 'rgba(120, 150, 190, 0.4)',
+            secondary: 'rgba(140, 170, 210, 0.32)',
+            tertiary: 'rgba(160, 190, 220, 0.26)',
+            accent: 'rgba(100, 140, 180, 0.46)'
+        }
+    };
+
+    function updateWeatherBackground() {
+        const weatherIdx = parseInt(document.getElementById('Weather_Condition').value) || 0;
+        const theme = weatherThemes[weatherIdx];
+        const root = document.documentElement;
+        
+        root.style.setProperty('--weather-primary', theme.primary);
+        root.style.setProperty('--weather-secondary', theme.secondary);
+        root.style.setProperty('--weather-tertiary', theme.tertiary);
+        root.style.setProperty('--weather-accent', theme.accent);
+    }
+
+    /* ═══════════════════════════════════════════════
+       PARTICLE BACKGROUND SYSTEM (Liquid Glass Version)
+       ═══════════════════════════════════════════════ */
+    const canvas = document.getElementById('particleCanvas');
+    const ctx = canvas.getContext('2d');
+    let particles = [];
+    let animationId;
+
+    function resizeCanvas() {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+    }
+    resizeCanvas();
+    window.addEventListener('resize', resizeCanvas);
+
+    class Particle {
+        constructor() {
+            this.reset();
+        }
+        reset() {
+            this.x = Math.random() * canvas.width;
+            this.y = Math.random() * canvas.height;
+            this.size = Math.random() * 2 + 0.5;
+            this.speedX = (Math.random() - 0.5) * 0.4;
+            this.speedY = (Math.random() - 0.5) * 0.4;
+            this.life = Math.random();
+            this.maxLife = Math.random() * 0.5 + 0.5;
+            this.opacity = Math.random() * 0.3 + 0.1;
+        }
+        update(speedFactor, batteryFactor) {
+            const velocity = 1 + (speedFactor / 250) * 2.5;
+            this.x += this.speedX * velocity;
+            this.y += this.speedY * velocity;
+
+            this.life -= 0.002;
+            if (this.life <= 0 || this.x < 0 || this.x > canvas.width || this.y < 0 || this.y > canvas.height) {
+                this.reset();
+                this.life = this.maxLife;
+            }
+        }
+        draw(batteryFactor, weatherIdx) {
+            const opacity = this.life * (0.1 + batteryFactor * 0.25) * this.opacity;
+            
+            // Particle color adapts to weather
+            let color;
+            switch(parseInt(weatherIdx)) {
+                case 0: case 1: color = '255, 180, 100'; break; // Sunny
+                case 2: case 7: color = '180, 185, 195'; break; // Overcast/Fog
+                case 3: case 4: color = '120, 160, 200'; break; // Rain
+                case 5: color = '100, 100, 140'; break; // Thunderstorm
+                case 6: color = '200, 220, 240'; break; // Snow
+                case 8: color = '160, 180, 160'; break; // Wind
+                case 9: color = '140, 160, 180'; break; // Hail
+                default: color = batteryFactor > 0.5 ? '0, 113, 227' : '255, 149, 0';
+            }
+            
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+            ctx.fillStyle = `rgba(${color}, ${opacity})`;
+            ctx.fill();
+        }
+    }
+
+    function initParticles() {
+        particles = [];
+        const count = Math.floor((canvas.width * canvas.height) / 20000);
+        for (let i = 0; i < count; i++) {
+            particles.push(new Particle());
+        }
+    }
+
+    function animateParticles() {
+        const speed = parseFloat(document.getElementById('Speed_kmh').value) || 0;
+        const battery = parseFloat(document.getElementById('Battery_State_%').value) || 50;
+        const weatherIdx = document.getElementById('Weather_Condition').value || 0;
+        const batteryFactor = battery / 100;
+
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        particles.forEach(p => {
+            p.update(speed, batteryFactor);
+            p.draw(batteryFactor, weatherIdx);
+        });
+        animationId = requestAnimationFrame(animateParticles);
+    }
+
+    initParticles();
+    animateParticles();
+
+    function updateParticles() {
+        // Triggered on speed change - particles respond automatically in animation loop
+    }
+
+    /* ═══════════════════════════════════════════════
+       UI FUNCTIONS
+       ═══════════════════════════════════════════════ */
+    function syncSlider(el, valId, unit) {
+        const min = parseFloat(el.min), max = parseFloat(el.max), val = parseFloat(el.value);
+        const pct = ((val - min) / (max - min)) * 100;
+        el.style.setProperty('--pct', pct + '%');
+        const display = Number.isInteger(val) ? val : parseFloat(val.toFixed(1));
+        document.getElementById(valId).innerHTML = `${display}<span class="live-unit">${unit}</span>`;
+        updateImpactBars();
+    }
+
+    const weatherIcons = ['☀️','🌤️','☁️','🌦️','🌧️','⛈️','❄️','🌫️','🌬️','🌨️'];
+    const weatherImpacts = [0, -2, -5, -10, -15, -20, -25, -8, -12, -18];
+
+    function updateWeatherIcon(el) {
+        document.getElementById('val_Weather_icon').textContent = weatherIcons[el.value] ?? '☀️';
+    }
+
+    function updateWeatherImpact() {
+        const weatherIdx = parseInt(document.getElementById('Weather_Condition').value) || 0;
+        const impact = weatherImpacts[weatherIdx];
+        const icon = weatherIcons[weatherIdx];
+        const el = document.getElementById('weatherImpact');
+
+        document.getElementById('weatherImpactIcon').textContent = icon;
+        document.getElementById('weatherImpactValue').textContent = (impact >= 0 ? '+' : '') + impact + '%';
+
+        el.classList.toggle('negative', impact < 0);
+    }
+
+    function updateBatteryStatus() {
+        const battery = parseFloat(document.getElementById('Battery_State_%').value) || 50;
+        const statusEl = document.getElementById('batteryStatus');
+        const textEl = document.getElementById('batteryStatusText');
+
+        statusEl.className = 'battery-status';
+        if (battery >= 80) {
+            statusEl.classList.add('optimal');
+            textEl.textContent = 'Optimal Range';
+        } else if (battery >= 40) {
+            statusEl.classList.add('good');
+            textEl.textContent = 'Good Range';
+        } else if (battery >= 20) {
+            statusEl.classList.add('warning');
+            textEl.textContent = 'Limited Range';
+        } else {
+            statusEl.classList.add('critical');
+            textEl.textContent = 'Critical Range';
+        }
+        updateImpactBars();
+    }
+
+    function updateTerrain() {
+        const slope = parseFloat(document.getElementById('Slope_%').value) || 0;
+        const svg = document.getElementById('terrainSvg');
+        const path = document.getElementById('terrainPath');
+        const fill = document.getElementById('terrainFill');
+
+        const width = 200;
+        const height = 60;
+        const midY = height / 2;
+        const amplitude = (slope / 30) * 22;
+
+        let d = `M 0 ${midY}`;
+        for (let x = 0; x <= width; x += 8) {
+            const y = midY - (x / width) * amplitude + Math.sin(x * 0.07) * 4;
+            d += ` L ${x} ${y}`;
+        }
+
+        path.setAttribute('d', d);
+        fill.setAttribute('d', d + ` L ${width} ${height} L 0 ${height} Z`);
+    }
+
+    function updateImpactBars() {
+        const speed = parseFloat(document.getElementById('Speed_kmh').value) || 0;
+        const slope = parseFloat(document.getElementById('Slope_%').value) || 0;
+        const temp = parseFloat(document.getElementById('Temperature_C').value) || 20;
+        const battery = parseFloat(document.getElementById('Battery_State_%').value) || 50;
+
+        const speedImpact = Math.min((speed / 250) * 100, 100);
+        document.getElementById('speedImpactBar').style.width = speedImpact + '%';
+        document.getElementById('speedImpactVal').textContent = Math.round(speedImpact) + '%';
+        document.getElementById('speedImpactBar').className = 'impact-bar-fill' + (speedImpact > 70 ? ' critical' : speedImpact > 40 ? ' warning' : '');
+
+        const slopeImpact = Math.min((Math.abs(slope) / 30) * 100, 100);
+        document.getElementById('slopeImpactBar').style.width = slopeImpact + '%';
+        document.getElementById('slopeImpactVal').textContent = Math.round(slopeImpact) + '%';
+        document.getElementById('slopeImpactBar').className = 'impact-bar-fill' + (slopeImpact > 60 ? ' critical' : slopeImpact > 30 ? ' warning' : '');
+
+        const tempImpact = Math.min((Math.abs(temp - 20) / 40) * 100, 100);
+        document.getElementById('tempImpactBar').style.width = tempImpact + '%';
+        document.getElementById('tempImpactVal').textContent = Math.round(tempImpact) + '%';
+        document.getElementById('tempImpactBar').className = 'impact-bar-fill' + (tempImpact > 60 ? ' critical' : tempImpact > 30 ? ' warning' : '');
+
+        const batteryHealth = battery;
+        document.getElementById('batteryImpactBar').style.width = batteryHealth + '%';
+        document.getElementById('batteryImpactVal').textContent = Math.round(batteryHealth) + '%';
+        document.getElementById('batteryImpactBar').className = 'impact-bar-fill' + (batteryHealth < 30 ? ' critical' : batteryHealth < 50 ? ' warning' : '');
+    }
+
+    function calculateEfficiencyScore() {
+        const speed = parseFloat(document.getElementById('Speed_kmh').value) || 0;
+        const accel = parseFloat(document.getElementById('Acceleration_ms2').value) || 0;
+        const slope = parseFloat(document.getElementById('Slope_%').value) || 0;
+        const temp = parseFloat(document.getElementById('Temperature_C').value) || 20;
+        const battery = parseFloat(document.getElementById('Battery_State_%').value) || 50;
+        const weatherIdx = parseInt(document.getElementById('Weather_Condition').value) || 0;
+
+        let score = 100;
+
+        if (speed < 30) score -= 5;
+        else if (speed > 120) score -= (speed - 120) * 0.3;
+
+        score -= Math.abs(accel) * 2;
+        score -= Math.abs(slope) * 0.8;
+        score -= Math.abs(temp - 20) * 0.3;
+        score += weatherImpacts[weatherIdx] * 0.5;
+
+        if (battery > 80) score += 5;
+        else if (battery < 30) score -= 10;
+
+        return Math.max(0, Math.min(100, Math.round(score)));
+    }
+
+    function updateEfficiencyRing(score) {
+        const ring = document.getElementById('efficiencyRing');
+        const scoreEl = document.getElementById('efficiencyScore');
+        const circumference = 408;
+        const offset = circumference - (score / 100) * circumference;
+
+        ring.style.strokeDashoffset = offset;
+        scoreEl.textContent = score;
+
+        if (score >= 80) {
+            ring.style.stroke = 'var(--success)';
+            scoreEl.style.color = 'var(--success)';
+        } else if (score >= 60) {
+            ring.style.stroke = 'var(--accent)';
+            scoreEl.style.color = 'var(--accent)';
+        } else if (score >= 40) {
+            ring.style.stroke = 'var(--warning)';
+            scoreEl.style.color = 'var(--warning)';
+        } else {
+            ring.style.stroke = 'var(--danger)';
+            scoreEl.style.color = 'var(--danger)';
+        }
+    }
+
+    /* ═══════════════════════════════════════════════
+       CHART SETUP (Liquid Glass Theme)
+       ═══════════════════════════════════════════════ */
+    const MAX_RANGE_KM = 600;
+    const HISTORY_POINTS = 20;
+
+    let rangeChart = null;
+    let energyChart = null;
+    const energyHistory = new Array(HISTORY_POINTS).fill(null);
+
+    function getGaugeColor(batteryPercent) {
+        if (batteryPercent >= 80) return '#34c759';
+        if (batteryPercent >= 40) return '#0071e3';
+        if (batteryPercent >= 20) return '#ff9500';
+        return '#ff3b30';
+    }
+
+    function initCharts() {
+        const initialBattery = 50;
+        const color = getGaugeColor(initialBattery);
+
+        rangeChart = new ApexCharts(document.getElementById('rangeGauge'), {
+            series: [0],
+            chart: {
+                type: 'radialBar',
+                height: 240,
+                background: 'transparent',
+                animations: { enabled: true, easing: 'easeout', speed: 800 },
+                toolbar: { show: false }
+            },
+            plotOptions: {
+                radialBar: {
+                    startAngle: -135,
+                    endAngle: 135,
+                    hollow: { margin: 0, size: '64%', background: 'transparent' },
+                    track: { 
+                        background: 'rgba(0, 0, 0, 0.04)', 
+                        strokeWidth: '100%', 
+                        margin: 0
+                    },
+                    dataLabels: {
+                        name: {
+                            show: true, 
+                            offsetY: -8, 
+                            color: 'var(--text-tertiary)',
+                            fontSize: '11px', 
+                            fontFamily: '-apple-system, BlinkMacSystemFont, "Inter", sans-serif',
+                            fontWeight: 500, 
+                            text: 'km remaining'
+                        },
+                        value: {
+                            show: true, 
+                            offsetY: 10, 
+                            color: color,
+                            fontSize: '28px', 
+                            fontFamily: '-apple-system, BlinkMacSystemFont, "Inter", sans-serif',
+                            fontWeight: 700,
+                            formatter: (val) => {
+                                const km = (val / 100 * MAX_RANGE_KM);
+                                return km >= 1 ? km.toFixed(1) : '—';
+                            }
+                        }
+                    }
+                }
+            },
+            fill: {
+                type: 'gradient',
+                gradient: { 
+                    shade: 'light', 
+                    type: 'horizontal', 
+                    gradientToColors: [color], 
+                    stops: [0, 100],
+                    opacityFrom: 0.9,
+                    opacityTo: 1
+                }
+            },
+            stroke: { 
+                lineCap: 'round',
+                width: 2
+            },
+            theme: { mode: 'light' }
+        });
+        rangeChart.render();
+
+        energyChart = new ApexCharts(document.getElementById('energyChart'), {
+            series: [{ name: 'kWh', data: [...energyHistory] }],
+            chart: {
+                type: 'area', 
+                height: 100, 
+                sparkline: { enabled: true },
+                background: 'transparent',
+                animations: { 
+                    enabled: true, 
+                    easing: 'easeout', 
+                    dynamicAnimation: { enabled: true, speed: 500 } 
+                },
+                toolbar: { show: false }
+            },
+            stroke: { 
+                curve: 'smooth', 
+                width: 3, 
+                colors: ['var(--accent)'] 
+            },
+            fill: {
+                type: 'gradient',
+                gradient: {
+                    shadeIntensity: 1, 
+                    opacityFrom: 0.3, 
+                    opacityTo: 0, 
+                    stops: [0, 100],
+                    colorStops: [
+                        { offset: 0, color: 'var(--accent)', opacity: 0.3 }, 
+                        { offset: 100, color: 'var(--accent)', opacity: 0 }
+                    ]
+                }
+            },
+            markers: { 
+                size: 0, 
+                hover: { size: 5, sizeOffset: 2 } 
+            },
+            tooltip: {
+                enabled: true, 
+                theme: 'light', 
+                x: { show: false },
+                y: { 
+                    formatter: (v) => v != null ? v.toFixed(4) + ' kWh' : '—',
+                    title: { formatter: () => 'Energy' }
+                },
+                marker: { show: false },
+                style: {
+                    fontSize: '12px',
+                    fontFamily: '-apple-system, BlinkMacSystemFont, "Inter", sans-serif'
+                }
+            },
+            theme: { mode: 'light' },
+            colors: ['var(--accent)'],
+            grid: {
+                padding: {
+                    top: -15,
+                    right: 5,
+                    bottom: -10,
+                    left: 5
+                }
+            }
+        });
+        energyChart.render();
+    }
+
+    function updateOutputVisuals(rangeKm, energyKwh) {
+        const battery = parseFloat(document.getElementById('Battery_State_%').value) || 50;
+        const color = getGaugeColor(battery);
+
+        const pct = Math.min(Math.max((rangeKm / MAX_RANGE_KM) * 100, 0), 100);
+        rangeChart.updateOptions({
+            plotOptions: {
+                radialBar: {
+                    dataLabels: {
+                        value: { color: color }
+                    }
+                }
+            },
+            fill: {
+                gradient: { gradientToColors: [color] }
+            }
+        });
+        rangeChart.updateSeries([parseFloat(pct.toFixed(2))], true);
+
+        document.getElementById('out_energy_display').textContent = energyKwh.toFixed(4);
+
+        energyHistory.shift();
+        energyHistory.push(parseFloat(energyKwh.toFixed(4)));
+        energyChart.updateSeries([{ name: 'kWh', data: [...energyHistory] }], false);
+
+        const efficiency = calculateEfficiencyScore();
+        updateEfficiencyRing(efficiency);
+    }
+
+    /* ═══════════════════════════════════════════════
+       TECHNICAL BACKEND (Preserved Functionality)
+       ═══════════════════════════════════════════════ */
+    const statusDot = document.getElementById('status-dot');
+    const statusText = document.getElementById('status-text');
+
+    const inputIds = [
+        "Speed_kmh", "Acceleration_ms2", "Battery_State_%", "Battery_Voltage_V",
+        "Battery_Temperature_C", "Slope_%", "Temperature_C", "Distance_Travelled_km",
+        "Weather_Condition", "Total_Battery_Capacity_kWh"
+    ];
+
+    window.addEventListener('DOMContentLoaded', () => {
+        document.querySelectorAll('input[type="range"]').forEach(el => {
+            const min = parseFloat(el.min), max = parseFloat(el.max), val = parseFloat(el.value);
+            el.style.setProperty('--pct', ((val - min) / (max - min)) * 100 + '%');
+        });
+
+        initCharts();
+        updateBatteryStatus();
+        updateWeatherImpact();
+        updateTerrain();
+        updateImpactBars();
+        updateEfficiencyRing(calculateEfficiencyScore());
+        
+        document.getElementById('timestamp').textContent =
+            new Date().toLocaleTimeString('en-US', { hour12: false });
+    });
+
+    setInterval(() => {
+        document.getElementById('timestamp').textContent =
+            new Date().toLocaleTimeString('en-US', { hour12: false });
+    }, 1000);
+
+    function sendInputs() {
+        const inputs = {};
+        inputIds.forEach(id => {
+            inputs[id] = parseFloat(document.getElementById(id).value) || 0;
+        });
+
+        const btn = document.querySelector('button');
+        const originalText = btn.innerHTML;
+        btn.innerHTML = '<span>✓ Parameters Sent</span>';
+        btn.style.background = 'var(--success)';
+        
+        fetch('/api/data', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ inputs: inputs })
+        }).then(r => {
+            if (r.ok) {
+                console.log("Data pushed successfully");
+                setTimeout(() => {
+                    btn.innerHTML = originalText;
+                    btn.style.background = '';
+                }, 1500);
+            }
+        }).catch(err => {
+            console.error("Failed to push data", err);
+            btn.innerHTML = '<span>⚠️ Send Failed</span>';
+            btn.style.background = 'var(--danger)';
+            setTimeout(() => {
+                btn.innerHTML = originalText;
+                btn.style.background = '';
+            }, 2000);
+        });
+    }
+
+    setInterval(() => {
+        fetch('/api/data')
+            .then(r => { if (!r.ok) throw new Error("Network response was not ok"); return r.json(); })
+            .then(data => {
+                statusDot.classList.add('online');
+                statusText.innerText = "Server Online";
+                statusText.style.color = "var(--success)";
+
+                document.getElementById('out_range').innerHTML =
+                    `${data.outputs.Predicted_Range_km.toFixed(2)}<span class="unit">km</span>`;
+                document.getElementById('out_energy').innerHTML =
+                    `${data.outputs.Energy_Consumption_kWh.toFixed(4)}<span class="unit">kWh</span>`;
+
+                updateOutputVisuals(
+                    data.outputs.Predicted_Range_km,
+                    data.outputs.Energy_Consumption_kWh
+                );
+            })
+            .catch(error => {
+                statusDot.classList.remove('online');
+                statusText.innerText = "Server Offline";
+                statusText.style.color = "var(--danger)";
+            });
+    }, 800);
+</script>
+</body>
+</html>
